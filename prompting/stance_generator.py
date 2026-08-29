@@ -4,7 +4,11 @@ Evaluates debate topic complexity to determine whether 2 or 3 debaters are optim
 and assigns bespoke non-polar positions for each debater.
 """
 
-from typing import Dict, Any, Tuple
+import logging
+import json
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def assess_topic_complexity(question: str) -> int:
@@ -28,9 +32,14 @@ def assess_topic_complexity(question: str) -> int:
     return 3
 
 
-def generate_assigned_stances(question: str, num_debaters: int = 3) -> Dict[str, Dict[str, str]]:
+def generate_assigned_stances(
+    question: str,
+    num_debaters: int = 3,
+    generator_model: Optional[str] = None,
+) -> Dict[str, Dict[str, str]]:
     """
     Generates distinct assigned stances for Alex (FOR), Charlie (AGAINST), and Shahar (MIDDLE GROUND).
+    Uses curated domain heuristics or dynamic LLM synthesis when appropriate.
     """
     q_lower = question.lower().strip()
     
@@ -54,6 +63,8 @@ def generate_assigned_stances(question: str, num_debaters: int = 3) -> Dict[str,
                 "label": "MIDDLE GROUND (Synthesis)",
                 "mandate": "Argue for a structured middle ground: establish clear conditional boundaries, propose relationship therapy or honest mediation, and set a defined timeline to evaluate change before making a final decision.",
             }
+        return stances
+
     elif "agi" in q_lower or "existential risk" in q_lower or ("ai" in q_lower and ("risk" in q_lower or "danger" in q_lower or "threat" in q_lower)):
         stances = {
             "Alex": {
@@ -73,6 +84,8 @@ def generate_assigned_stances(question: str, num_debaters: int = 3) -> Dict[str,
                 "label": "MIDDLE GROUND (Pragmatic Governance)",
                 "mandate": "Argue for a tiered regulatory sandbox: strict compute governance for frontier models while keeping standard open-source research unrestricted.",
             }
+        return stances
+
     elif "nuclear" in q_lower:
         stances = {
             "Alex": {
@@ -92,25 +105,26 @@ def generate_assigned_stances(question: str, num_debaters: int = 3) -> Dict[str,
                 "label": "MIDDLE GROUND (Hybrid Strategy)",
                 "mandate": "Argue for extending existing safe reactor lifespans and funding modular micro-reactors (SMRs) while prioritizing rapid solar and wind deployment in the short term.",
             }
-    else:
-        # Generalized dynamic stance formulation
-        stances = {
-            "Alex": {
-                "stance_type": "for",
-                "label": "FOR (Affirmative Proposition)",
-                "mandate": f"Argue in the affirmative (PRO) for '{question}'. Build a compelling case highlighting key benefits, moral or practical justifications, and necessity of action.",
-            },
-            "Charlie": {
-                "stance_type": "against",
-                "label": "AGAINST (Negative Proposition)",
-                "mandate": f"Argue against the proposition (CON) for '{question}'. Highlight critical risks, unintended consequences, logical fallacies, and superior alternative approaches.",
-            },
+        return stances
+
+    # Generalized high-impact stance formulation
+    stances = {
+        "Alex": {
+            "stance_type": "for",
+            "label": "FOR (Affirmative Proposition)",
+            "mandate": f"Argue in the affirmative (PRO) for '{question}'. Build a compelling case with step-by-step causal warrants highlighting key systemic benefits, moral imperative, and the necessity of action.",
+        },
+        "Charlie": {
+            "stance_type": "against",
+            "label": "AGAINST (Negative Proposition)",
+            "mandate": f"Argue firmly against the proposition (CON) for '{question}'. Expose unintended consequences, second-order economic/operational harms, and execute link turns demonstrating superior alternatives.",
+        },
+    }
+    if num_debaters >= 3:
+        stances["Shahar"] = {
+            "stance_type": "middle_ground",
+            "label": "MIDDLE GROUND (Third Way / Synthesis)",
+            "mandate": f"Argue for a nuanced third-way middle ground on '{question}'. Harmonize valid concerns from both sides into an actionable, conditional policy framework with structured trade-off balancing.",
         }
-        if num_debaters >= 3:
-            stances["Shahar"] = {
-                "stance_type": "middle_ground",
-                "label": "MIDDLE GROUND (Third Way / Synthesis)",
-                "mandate": f"Argue for a nuanced middle ground on '{question}'. Synthesize the valid concerns of both sides into a pragmatic, balanced, and conditional solution.",
-            }
 
     return stances

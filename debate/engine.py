@@ -17,6 +17,7 @@ from models.debate_state import (
 from debate.debater import Debater
 from debate.moderator import Moderator
 from debate.judge import Judge
+from debate.history_manager import save_session
 from prompting.stance_generator import generate_assigned_stances, assess_topic_complexity
 
 logger = logging.getLogger(__name__)
@@ -334,6 +335,7 @@ class DebateEngine:
                     if progress:
                         progress(0.85, "Compiling Master Blueprint Document...")
                     self._synthesize_master_plan()
+                    save_session(self.state)
                 else:
                     self.state.current_round += 1
 
@@ -387,6 +389,7 @@ class DebateEngine:
                 )
                 if self.state.final_verdict:
                     self.state.final_verdict.grand_winner = self.state.grand_winner
+                save_session(self.state)
             else:
                 self.state.current_round += 1
 
@@ -413,4 +416,5 @@ class DebateEngine:
         """
         while not self.is_finished():
             self.step_turn(progress)
+        save_session(self.state)
         return self.state

@@ -808,5 +808,39 @@ html, body, [class*="css"] {
     color: #94A3B8;
     border: 1px solid rgba(148, 163, 184, 0.2);
 }
+
+/* =========================================================
+   RESPONSIVE VIEWPORT & MOBILE MEDIA QUERIES
+   ========================================================= */
+@media (max-width: 900px) {
+    .stage-overlay-balloon {
+        width: 82% !important;
+        left: 9% !important;
+        top: 2% !important;
+        padding: 8px 12px !important;
+    }
+    .stage-balloon-body {
+        font-size: 0.84rem !important;
+        line-height: 1.35 !important;
+    }
+    .stage-tail-alex, .stage-tail-alex-inner,
+    .stage-tail-charlie, .stage-tail-charlie-inner,
+    .stage-tail-sam, .stage-tail-shahar,
+    .stage-tail-sam-inner, .stage-tail-shahar-inner,
+    .stage-tail-dredd, .stage-tail-dredd-inner {
+        display: none !important;
+    }
+    .comic-avatar-frame {
+        width: 62px !important;
+        height: 62px !important;
+    }
+    .comic-avatar-col {
+        min-width: 70px !important;
+    }
+    .stage-live-ticker {
+        font-size: 0.74rem !important;
+        padding: 4px 8px !important;
+    }
+}
 </style>
 """

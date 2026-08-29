@@ -166,6 +166,27 @@ def render_control_panel() -> Dict[str, Any]:
                 )
             st.caption("💡 **Tip:** To use Cloud APIs, add keys to `.env`. Local Ollama models run free on your Mac.")
 
+        # 3. Session History Archive
+        from debate.history_manager import list_saved_sessions, load_session, delete_session
+        saved_list = list_saved_sessions()
+        loaded_state = None
+        if saved_list:
+            with st.expander(f"📜 Session Archive ({len(saved_list)} saved)", expanded=False):
+                sess_options = ["-- None --"] + [f"{s['file_id']} | {s['question'][:28]}..." for s in saved_list]
+                selected_sess = st.selectbox(
+                    "Browse past sessions:",
+                    options=sess_options,
+                    key="history_sess_select",
+                )
+                if selected_sess != "-- None --":
+                    sess_file = selected_sess.split(" | ")[0]
+                    col_l, col_d = st.columns(2)
+                    if col_l.button("📂 Load", use_container_width=True, key="btn_load_sess"):
+                        loaded_state = load_session(sess_file)
+                    if col_d.button("🗑️ Delete", use_container_width=True, key="btn_del_sess"):
+                        delete_session(sess_file)
+                        st.rerun()
+
         st.markdown("---")
 
         # === PLAN MODE CONFIGURATION ===
@@ -345,4 +366,5 @@ def render_control_panel() -> Dict[str, Any]:
             "max_rounds": max_rounds,
             "unready_warnings": unready_warnings,
             "is_valid": len(unready_warnings) == 0,
+            "loaded_state": loaded_state,
         }

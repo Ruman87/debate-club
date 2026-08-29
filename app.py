@@ -82,6 +82,11 @@ if "engine" not in st.session_state:
 if "auto_run" not in st.session_state:
     st.session_state.auto_run = False
 
+# Handle session loaded from archive
+if config.get("loaded_state") is not None:
+    st.session_state.engine = DebateEngine(config["loaded_state"])
+    st.session_state.auto_run = False
+
 
 def start_session():
     """Initializes a new debate or brainstorming planning session based on selected mode."""

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Any
 
 
 class DebaterResponse(BaseModel):
@@ -79,3 +79,60 @@ class DebaterResponse(BaseModel):
         default=False,
         description="True if consensus is reached (Debate Mode) or Master Blueprint is finalized (Plan Mode)."
     )
+
+    @field_validator(
+        "inner_reasoning",
+        "critique_or_rebuttal",
+        "current_best_answer",
+        "speech_bubble_summary",
+        "core_warrant",
+        "clash_point_targeted",
+        mode="before"
+    )
+    @classmethod
+    def coerce_str_fields(cls, v: Any) -> str:
+        """Coerces dictionaries or nested objects returned by small local models into clean strings."""
+        if v is None:
+            return ""
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            # If model nested keys inside this field, extract the best matching subkey or join values
+            for candidate in ["speech_bubble_summary", "current_best_answer", "summary", "content", "answer", "text"]:
+                if candidate in v and isinstance(v[candidate], str):
+                    return v[candidate]
+            return " ".join(str(val) for val in v.values() if isinstance(val, (str, int, float)))
+        if isinstance(v, (list, tuple)):
+            return " ".join(str(item) for item in v)
+        return str(v)
+
+    @field_validator(
+        "points_of_agreement",
+        "vulnerabilities_identified",
+        "proposed_enhancements",
+        mode="before"
+    )
+    @classmethod
+    def coerce_list_fields(cls, v: Any) -> List[str]:
+        """Coerces strings or dictionaries into clean lists of strings."""
+        if v is None:
+            return []
+        if isinstance(v, list):
+            return [str(item) for item in v if item]
+        if isinstance(v, str):
+            if not v.strip():
+                return []
+            return [line.strip().lstrip("-•* ") for line in v.split("\n") if line.strip()]
+        if isinstance(v, dict):
+            return [f"{k}: {val}" for k, val in v.items() if val]
+        return [str(v)]
+
+    @field_validator("agreement_score", mode="before")
+    @classmethod
+    def coerce_score(cls, v: Any) -> int:
+        """Clamps score integer within [0, 100]."""
+        try:
+            val = int(v)
+            return max(0, min(100, val))
+        except (ValueError, TypeError):
+            return 50

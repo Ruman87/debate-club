@@ -186,12 +186,21 @@ Brief high-impact synthesis of the core breakthrough strategy and unique value p
 ## 🏗️ System Architecture & Core Strategy
 Comprehensive breakdown of workflows, tech stack/methodology, components, and primary mechanisms.
 
+### 📐 Visual Architecture Flowchart
+Provide a clean, valid Mermaid.js flowchart visualizing the end-to-end workflow:
+```mermaid
+graph TD
+    A[Input / Trigger] --> B[Core Engine / Pipeline]
+    B --> C[Stress-Testing & Verification Gateway]
+    C --> D[Execution & Output Layer]
+```
+
 ## 🛡️ Risk & Vulnerability Mitigation Matrix
 Table of critical edge cases/risks identified during stress-testing and their concrete solutions.
 
 | Risk / Bottleneck | Impact Severity | Concrete Mitigation Strategy |
 |---|---|---|
-| ... | ... | ... |
+| ... | High / Critical | ... |
 
 ## 📅 Phased Execution Roadmap
 Actionable step-by-step phases (Phase 1: Foundation/MVP, Phase 2: Scale, Phase 3: Optimization).
