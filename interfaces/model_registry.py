@@ -32,6 +32,10 @@ class ModelInfo:
     status_text: str
     description: str
 
+    @property
+    def display_name(self) -> str:
+        return self.name
+
 
 # Mapping of Cloud API Providers to their required environment variables
 API_PROVIDER_ENV_VARS = {
