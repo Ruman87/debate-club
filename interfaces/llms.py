@@ -392,6 +392,37 @@ class MockLLM(LLM):
 
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         import random
+        # Check if prompt is specifically for Master Blueprint compilation
+        if "Master Blueprint Compiler" in system_prompt or "Master Blueprint Compiler" in user_prompt:
+            return """# 🚀 Master Blueprint: Autonomous High-Value System Architecture
+
+## 📌 Executive Summary
+This blueprint establishes a state-of-the-art co-designed architecture combining an edge-first execution framework with adaptive risk controls and proactive developer toolchains.
+
+## 🏗️ System Architecture & Core Strategy
+1. **Core Ingestion & Context Layer**: Low-latency semantic streaming pipeline with real-time vector caching.
+2. **Execution Engine**: Asynchronous dual-agent loop isolating high-throughput reasoning from runtime sandbox execution.
+3. **Verification & Stress-Testing Gateway**: Automated AST analysis and regression safeguards.
+
+## 🛡️ Risk & Vulnerability Mitigation Matrix
+
+| Risk / Bottleneck | Impact Severity | Concrete Mitigation Strategy |
+|---|---|---|
+| Latency spikes under token saturation | High | Local speculative decoding and edge streaming caches |
+| Hallucinated edge-case code execution | Critical | Strict sandbox containerization and deterministic lint verification |
+| Cost scaling on frontier models | Medium | Dynamic model routing based on task complexity |
+
+## 📅 Phased Execution Roadmap
+- **Phase 1 (Weeks 1–4)**: Core MVP, foundational protocols, and baseline agent orchestration.
+- **Phase 2 (Weeks 5–8)**: Red-team stress testing, automated benchmarks, and developer telemetry.
+- **Phase 3 (Weeks 9–12)**: Production rollout, distributed edge nodes, and self-improving evaluation loops.
+
+## 🎯 Key Success Metrics & KPIs
+- Sub-200ms time-to-first-token on edge invocations.
+- 99.4% syntax and verification test pass rate before execution.
+- 40% reduction in token consumption via predictive context pruning.
+"""
+
         # Check if this prompt is for the moderator
         if "Synthesize the definitive verdict" in user_prompt or "Chief Moderator" in user_prompt:
             moderator_response = {

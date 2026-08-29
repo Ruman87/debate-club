@@ -18,7 +18,7 @@ class DebaterConfig(BaseModel):
     image_path: Optional[str] = None
     is_devils_advocate: bool = False
     assigned_stance: str = ""
-    stance_type: Literal["for", "against", "middle_ground"] = "for"
+    stance_type: Literal["for", "against", "middle_ground", "architect", "stress_tester", "synthesizer"] = "for"
 
 
 class TurnRecord(BaseModel):
@@ -88,25 +88,29 @@ class FinalVerdict(BaseModel):
 
 class DebateState(BaseModel):
     """
-    Complete state of an ongoing or completed debate.
+    Complete state of an ongoing or completed debate or planning brainstorm session.
     """
     question: str
+    app_mode: str = "debate"  # 'debate' (Competitive Arena) or 'plan' (Collaborative Mastermind)
     mode: str = "Dialectic Truth-Seeking"
     max_rounds: int = 4
     current_round: int = 1
     current_turn_index: int = 0
     debaters: List[DebaterConfig] = Field(default_factory=list)
     turns: List[TurnRecord] = Field(default_factory=list)
-    status: str = "idle"  # 'idle', 'in_progress', 'consensus_reached', 'max_rounds_reached', 'stalemate'
+    status: str = "idle"  # 'idle', 'in_progress', 'consensus_reached', 'max_rounds_reached', 'stalemate', 'plan_finalized'
     
-    # Judge & Competitive Mechanics
+    # Debate Mode: Judge & Competitive Mechanics
     judge_model: str = "gpt-4o-mini"
     round_evaluations: List[JudgeRoundEvaluation] = Field(default_factory=list)
     active_alliances: List[ActiveAlliance] = Field(default_factory=list)
     cumulative_scores: Dict[str, int] = Field(default_factory=dict)
     grand_winner: Optional[str] = None
-    
     final_verdict: Optional[FinalVerdict] = None
+
+    # Plan Mode: Collaborative Mastermind Mechanics
+    master_plan: Optional[str] = None
+    plan_readiness_score: int = 0
 
     def get_latest_turn(self) -> Optional[TurnRecord]:
         if self.turns:

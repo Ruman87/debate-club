@@ -1,34 +1,44 @@
+"""
+Sidebar Control Panel for Debate-Club supporting both Debate Mode (Arena)
+and Plan Mode (Collaborative Mastermind Brainstorming).
+"""
+
 import streamlit as st
-from typing import Dict, Any
-from interfaces.llms import LLM
+from typing import Dict, Any, List, Optional
 from interfaces.model_registry import (
     get_all_models_with_status,
-    get_model_info_map,
-    format_model_dropdown_label,
-    get_recommended_default_indices,
     get_providers_status_summary,
+    ModelInfo,
     ModelCategory,
 )
 
 PRESET_QUESTIONS = [
-    "Should AI developers prioritize open-weights models or closed API-only safety guardrails?",
-    "Is artificial general intelligence (AGI) likely achievable via autoregressive next-token prediction alone?",
-    "Should monolithic architectures or microservices be the default choice for early-stage software startups?",
-    "Can free will exist in a deterministic universe?",
-    "What is the most effective approach to mitigate algorithmic bias in automated hiring systems?",
+    "Should society implement a mandatory 4-day work week?",
+    "Is next-token prediction sufficient to achieve Artificial General Intelligence (AGI)?",
+    "Should AI-generated code be allowed in safety-critical infrastructure without human review?",
+    "Should open-weights frontier AI models be restricted by international treaties?",
+    "Will autonomous AI agents create more net economic value than SaaS platforms by 2030?",
+    "Is nuclear fission energy indispensable for powering future global AI compute clusters?",
 ]
 
-PERSONA_OPTIONS = [
-    "Dialectic Truth-Seeking",
-    "Devil's Advocate",
-    "Pragmatic Engineering & Trade-offs",
-    "Proponent vs Skeptic",
-    "Socratic Inquiry",
+PRESET_BRAINSTORM_OBJECTIVES = [
+    "Design a viral, zero-budget launch strategy for a B2B AI agent platform",
+    "Architect an ultra-low latency, edge-deployed real-time voice AI assistant",
+    "Create a 6-month go-to-market plan for an open-source developer tool",
+    "Design an autonomous pair-programming agent with proactive linting and AST refactoring",
+    "Develop a sustainable monetization model for an open-source AI community",
 ]
 
 
-def _render_model_status_badge(model_id: str, model_info_map: Dict[str, Any]):
-    """Renders a dynamic visual card below a model selector showing API / Local status."""
+def format_model_dropdown_label(model_id: str, model_info_map: Dict[str, ModelInfo]) -> str:
+    info = model_info_map.get(model_id)
+    if not info:
+        return model_id
+    status_icon = "🟢" if info.is_available else "⚪" if info.category == ModelCategory.LOCAL_MACHINE else "🔴"
+    return f"{status_icon} {info.name} ({info.provider})"
+
+
+def _render_model_status_badge(model_id: str, model_info_map: Dict[str, ModelInfo]):
     info = model_info_map.get(model_id)
     if not info:
         return
@@ -37,9 +47,9 @@ def _render_model_status_badge(model_id: str, model_info_map: Dict[str, Any]):
         if info.is_available:
             st.markdown(
                 f"""
-                <div class="model-status-card status-active-api">
+                <div class="model-status-card status-configured">
                     <span>🟢</span>
-                    <div><strong>Cloud API:</strong> Connected via <code>{info.env_var}</code></div>
+                    <div><strong>API Ready:</strong> <code>{info.env_var}</code> detected.</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -49,19 +59,18 @@ def _render_model_status_badge(model_id: str, model_info_map: Dict[str, Any]):
                 f"""
                 <div class="model-status-card status-missing-key">
                     <span>⚠️</span>
-                    <div><strong>Cloud API (Unconfigured):</strong> Missing <code>{info.env_var}</code> in <code>.env</code>. Add your key or choose a Local/Simulator model.</div>
+                    <div><strong>Missing Key:</strong> Set <code>{info.env_var}</code> in your <code>.env</code> file.</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
     elif info.category == ModelCategory.LOCAL_MACHINE:
-        clean_name = model_id.replace("ollama/", "")
         if info.is_available:
             st.markdown(
                 f"""
-                <div class="model-status-card status-local-running">
-                    <span>💻</span>
-                    <div><strong>Local Machine:</strong> Running locally on your Mac via Ollama (Free, private, no API bill).</div>
+                <div class="model-status-card status-configured">
+                    <span>🟢</span>
+                    <div><strong>Local Ollama Ready:</strong> Running natively on your Mac.</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -69,19 +78,20 @@ def _render_model_status_badge(model_id: str, model_info_map: Dict[str, Any]):
         elif "Offline" in info.status_text:
             st.markdown(
                 f"""
-                <div class="model-status-card status-local-offline">
-                    <span>⚪</span>
-                    <div><strong>Local Machine (Offline):</strong> Ollama is not running. Run <code>ollama serve</code> in terminal to activate local execution.</div>
+                <div class="model-status-card status-missing-key">
+                    <span>🔴</span>
+                    <div><strong>Ollama Offline:</strong> Start Ollama on your Mac (<code>ollama serve</code>).</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
         else:
+            clean_name = model_id.replace("ollama/", "")
             st.markdown(
                 f"""
                 <div class="model-status-card status-missing-key">
                     <span>⚪</span>
-                    <div><strong>Model Not Downloaded:</strong> Run <code>ollama pull {clean_name}</code> in terminal, or select an installed model (e.g. <code>deepseek-r1:1.5b</code>, <code>llama3.2:latest</code>).</div>
+                    <div><strong>Model Not Downloaded:</strong> Run <code>ollama pull {clean_name}</code> in terminal, or select an installed model.</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -100,21 +110,49 @@ def _render_model_status_badge(model_id: str, model_info_map: Dict[str, Any]):
 
 def render_control_panel() -> Dict[str, Any]:
     """
-    Renders debate setup parameters, question input, model selection with status badges, and action triggers.
+    Renders setup parameters for either Debate Mode (Arena) or Plan Mode (Collaborative Brainstorming).
     """
     model_infos = get_all_models_with_status()
     model_info_map = {m.id: m for m in model_infos}
     all_models = [m.id for m in model_infos]
 
-    # Calculate recommended defaults (favoring available models)
-    default_d1_idx, default_d2_idx, default_d3_idx = get_recommended_default_indices(
-        all_models, model_info_map
-    )
+    # Calculate recommended defaults
+    default_d1_idx = 0
+    default_d2_idx = min(1, len(all_models) - 1)
+    default_d3_idx = min(2, len(all_models) - 1)
+
+    for idx, m in enumerate(all_models):
+        info = model_info_map.get(m)
+        if info and info.is_available:
+            default_d1_idx = idx
+            break
+
+    for idx in range(default_d1_idx + 1, len(all_models)):
+        info = model_info_map.get(all_models[idx])
+        if info and info.is_available:
+            default_d2_idx = idx
+            break
+
+    for idx in range(default_d2_idx + 1, len(all_models)):
+        info = model_info_map.get(all_models[idx])
+        if info and info.is_available:
+            default_d3_idx = idx
+            break
 
     with st.sidebar:
-        st.markdown("### ⚙️ Debate Configuration")
+        st.markdown("### ⚙️ Workspace Configuration")
 
-        # Provider & Key Status Overview Expander
+        # 1. Operational Mode Switch
+        mode_selection = st.radio(
+            "🎯 Operational Mode:",
+            ["⚔️ Debate Mode (Competitive Arena)", "📋 Plan Mode (Brainstorming Mastermind)"],
+            index=0,
+            help="Debate Mode features adversarial stances and Judge Dredd. Plan Mode collaborates to co-design a high-value Master Blueprint without a judge.",
+        )
+        is_plan_mode = "Plan" in mode_selection
+        app_mode = "plan" if is_plan_mode else "debate"
+
+        # 2. Provider & Key Status Overview Expander
         with st.expander("📊 Provider & API Status", expanded=False):
             summaries = get_providers_status_summary()
             for s in summaries:
@@ -128,99 +166,160 @@ def render_control_panel() -> Dict[str, Any]:
                 )
             st.caption("💡 **Tip:** To use Cloud APIs, add keys to `.env`. Local Ollama models run free on your Mac.")
 
-        # Preset Question selection
-        preset_choice = st.selectbox(
-            "📚 Choose a Preset Question (or write your own below):",
-            ["Custom Question..."] + PRESET_QUESTIONS,
-            index=0,
-        )
-
-        default_question = (
-            "" if preset_choice == "Custom Question..." else preset_choice
-        )
-        question = st.text_area(
-            "💬 Question / Topic for Debate:",
-            value=default_question,
-            height=90,
-            placeholder="e.g. Is next-token prediction sufficient to achieve general intelligence?",
-        )
-
         st.markdown("---")
-        st.markdown("#### 🤖 Debaters Roster")
-        st.caption("⚖️ Supreme Judge Dredd automatically assigns stances and assesses if 2 or 3 debaters are optimal for the topic.")
 
-        # Debater 1 (Alex)
-        with st.expander("🔷 Debater 1: Alex", expanded=True):
-            model1 = st.selectbox(
-                "Model:",
-                all_models,
-                index=default_d1_idx,
-                format_func=lambda m: format_model_dropdown_label(m, model_info_map),
-                key="d1_model",
+        # === PLAN MODE CONFIGURATION ===
+        if is_plan_mode:
+            st.markdown("#### 📋 Collaborative Mastermind Setup")
+            
+            preset_choice = st.selectbox(
+                "💡 Choose a Brainstorming Idea (or write custom objective below):",
+                ["Custom Objective..."] + PRESET_BRAINSTORM_OBJECTIVES,
+                index=0,
             )
-            _render_model_status_badge(model1, model_info_map)
-
-        # Debater 2 (Charlie)
-        with st.expander("🟣 Debater 2: Charlie", expanded=True):
-            model2 = st.selectbox(
-                "Model:",
-                all_models,
-                index=default_d2_idx,
-                format_func=lambda m: format_model_dropdown_label(m, model_info_map),
-                key="d2_model",
+            default_obj = "" if preset_choice == "Custom Objective..." else preset_choice
+            question = st.text_area(
+                "🎯 Brainstorm Objective / Idea to Architect:",
+                value=default_obj,
+                height=90,
+                placeholder="e.g. Design a viral zero-budget launch strategy for a B2B AI agent...",
             )
-            _render_model_status_badge(model2, model_info_map)
 
-        # Debater 3 (Shahar)
-        with st.expander("🔥 Debater 3: Shahar (Summoned for Complex Topics)", expanded=True):
-            model3 = st.selectbox(
-                "Model:",
-                all_models,
-                index=default_d3_idx,
-                format_func=lambda m: format_model_dropdown_label(m, model_info_map),
-                key="d3_model",
+            num_engines = st.radio(
+                "👥 Number of Brainstorming Engines:",
+                options=[2, 3],
+                index=1,
+                horizontal=True,
+                help="Select 2 engines (Lead Architect + Stress-Tester) or 3 engines (+ Systems Synthesizer).",
             )
-            _render_model_status_badge(model3, model_info_map)
 
-        st.markdown("---")
-        
-        # AI Judge Dredd Configuration
-        with st.expander("⚖️ Supreme Judge Dredd (Chief Adjudicator)", expanded=True):
-            judge_idx = 0
-            for idx, m in enumerate(all_models):
-                if m in ["gpt-4o-mini", "gemini-3.6-flash", "gemini-flash-latest"]:
-                    info = model_info_map.get(m)
-                    if info and info.is_available:
-                        judge_idx = idx
-                        break
+            st.markdown("##### 🤖 Brainstorming Mastermind Roles")
+            st.caption("Engines collaborate iteratively to stress-test and co-design a finalized Master Blueprint.")
 
-            judge_model = st.selectbox(
-                "Judge Model:",
-                all_models,
-                index=judge_idx,
-                format_func=lambda m: format_model_dropdown_label(m, model_info_map),
-                key="judge_model",
-                help="Supreme Judge Dredd evaluates every round, decrees winners in his elevated speech bubble, and crowns the final champion!",
+            # Engine 1 (Lead Architect)
+            with st.expander("🔷 Engine 1: Alex [Lead Architect]", expanded=True):
+                model1 = st.selectbox(
+                    "Model:",
+                    all_models,
+                    index=default_d1_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="plan_m1",
+                )
+                _render_model_status_badge(model1, model_info_map)
+
+            # Engine 2 (Chief Risk & Stress-Tester)
+            with st.expander("🟣 Engine 2: Charlie [Chief Risk & Stress-Tester]", expanded=True):
+                model2 = st.selectbox(
+                    "Model:",
+                    all_models,
+                    index=default_d2_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="plan_m2",
+                )
+                _render_model_status_badge(model2, model_info_map)
+
+            # Engine 3 (Systems Synthesizer)
+            model3 = None
+            if num_engines >= 3:
+                with st.expander("🔥 Engine 3: Shahar [Systems Synthesizer]", expanded=True):
+                    model3 = st.selectbox(
+                        "Model:",
+                        all_models,
+                        index=default_d3_idx,
+                        format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                        key="plan_m3",
+                    )
+                    _render_model_status_badge(model3, model_info_map)
+
+            max_rounds = st.slider("🔄 Brainstorming Iterations:", min_value=2, max_value=5, value=3)
+            judge_model = None
+            mode = "Collaborative Mastermind"
+
+        # === DEBATE MODE CONFIGURATION ===
+        else:
+            st.markdown("#### ⚔️ Competitive Debate Arena Setup")
+
+            preset_choice = st.selectbox(
+                "📚 Choose a Preset Motion (or write custom topic below):",
+                ["Custom Motion..."] + PRESET_QUESTIONS,
+                index=0,
             )
-            _render_model_status_badge(judge_model, model_info_map)
+            default_question = "" if preset_choice == "Custom Motion..." else preset_choice
+            question = st.text_area(
+                "💬 Question / Motion for Debate:",
+                value=default_question,
+                height=90,
+                placeholder="e.g. Is next-token prediction sufficient to achieve general intelligence?",
+            )
 
-        mode = st.selectbox(
-            "🎭 Debate Philosophy:",
-            [
-                "Competitive Dialectic",
-                "Dialectic Truth-Seeking",
-                "Pragmatic Engineering & Trade-offs",
-                "Proponent vs Skeptic",
-                "Socratic Inquiry",
-            ],
-            index=0,
-            help="Competitive Dialectic tests assigned stances with point scoring.",
-        )
+            st.markdown("##### 🤖 Debaters Roster")
+            st.caption("⚖️ Supreme Judge Dredd automatically assigns stances and assesses if 2 or 3 debaters are optimal.")
 
-        max_rounds = st.slider("⏱️ Max Rounds Limit:", min_value=2, max_value=6, value=3)
+            with st.expander("🔷 Debater 1: Alex", expanded=True):
+                model1 = st.selectbox(
+                    "Model:",
+                    all_models,
+                    index=default_d1_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="debate_m1",
+                )
+                _render_model_status_badge(model1, model_info_map)
 
-        # Check for any selected models with missing keys or offline status
-        selected_models = [model1, model2, judge_model] + ([model3] if model3 else [])
+            with st.expander("🟣 Debater 2: Charlie", expanded=True):
+                model2 = st.selectbox(
+                    "Model:",
+                    all_models,
+                    index=default_d2_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="debate_m2",
+                )
+                _render_model_status_badge(model2, model_info_map)
+
+            with st.expander("🔥 Debater 3: Shahar (Summoned for Complex Topics)", expanded=True):
+                model3 = st.selectbox(
+                    "Model:",
+                    all_models,
+                    index=default_d3_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="debate_m3",
+                )
+                _render_model_status_badge(model3, model_info_map)
+
+            st.markdown("---")
+            with st.expander("⚖️ Supreme Judge Dredd (Chief Adjudicator)", expanded=True):
+                judge_idx = 0
+                for idx, m in enumerate(all_models):
+                    if m in ["gpt-4o-mini", "gemini-3.6-flash", "gemini-flash-latest"]:
+                        info = model_info_map.get(m)
+                        if info and info.is_available:
+                            judge_idx = idx
+                            break
+
+                judge_model = st.selectbox(
+                    "Judge Model:",
+                    all_models,
+                    index=judge_idx,
+                    format_func=lambda m: format_model_dropdown_label(m, model_info_map),
+                    key="judge_model",
+                )
+                _render_model_status_badge(judge_model, model_info_map)
+
+            mode = st.selectbox(
+                "🎭 Debate Philosophy:",
+                [
+                    "Competitive Dialectic",
+                    "Dialectic Truth-Seeking",
+                    "Pragmatic Engineering & Trade-offs",
+                    "Proponent vs Skeptic",
+                    "Socratic Inquiry",
+                ],
+                index=0,
+            )
+            max_rounds = st.slider("⏱️ Max Rounds Limit:", min_value=2, max_value=6, value=3)
+            num_engines = None
+
+        # Check for unready warnings
+        selected_models = [model1, model2] + ([model3] if model3 else []) + ([judge_model] if judge_model else [])
         unready_warnings = []
         for sm in selected_models:
             info = model_info_map.get(sm)
@@ -235,14 +334,15 @@ def render_control_panel() -> Dict[str, Any]:
                         unready_warnings.append(f"• **{sm}**: Model not downloaded on Mac (run `ollama pull {clean_name}`).")
 
         return {
+            "app_mode": app_mode,
             "question": question.strip(),
             "model1": model1,
             "model2": model2,
             "model3": model3,
             "judge_model": judge_model,
+            "num_engines": num_engines,
             "mode": mode,
             "max_rounds": max_rounds,
             "unready_warnings": unready_warnings,
             "is_valid": len(unready_warnings) == 0,
         }
-

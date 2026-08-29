@@ -195,9 +195,100 @@ class DebateEngine:
                 if a.round_num < self.state.current_round:
                     a.is_active = False
 
+    @classmethod
+    def create_plan_mode(
+        cls,
+        objective: str,
+        engine1_model: str = "gpt-4o",
+        engine2_model: str = "gemini-3.6-flash",
+        engine3_model: Optional[str] = "ollama/qwen2.5:latest",
+        num_engines: int = 3,
+        max_rounds: int = 3,
+    ) -> "DebateEngine":
+        """
+        Factory method initializing Plan Mode for collaborative mastermind brainstorming.
+        User selects between 2 or 3 engines. No Judge is involved.
+        """
+        debaters = []
+
+        # Engine 1 (Alex - Lead Architect)
+        debaters.append(
+            DebaterConfig(
+                id="debater_1",
+                name="Alex",
+                model_name=engine1_model,
+                persona="Lead Architect & Visionary",
+                color="#3B82F6",
+                avatar="🔷",
+                image_path="assets/alex.jpg",
+                assigned_stance="Lead Architect: Formulates foundational vision, core workflows, and architectural framework.",
+                stance_type="architect",
+            )
+        )
+
+        # Engine 2 (Charlie - Chief Risk & Stress-Tester)
+        debaters.append(
+            DebaterConfig(
+                id="debater_2",
+                name="Charlie",
+                model_name=engine2_model,
+                persona="Chief Risk & Stress-Tester (Red Team)",
+                color="#A855F7",
+                avatar="🟣",
+                image_path="assets/charlie.jpg",
+                assigned_stance="Chief Risk & Stress-Tester: Probes hidden bottlenecks, failure modes, costs, and provides concrete remedies.",
+                stance_type="stress_tester",
+            )
+        )
+
+        # Engine 3 (Shahar - Systems Synthesizer) if 3 engines chosen
+        if num_engines >= 3 and engine3_model:
+            debaters.append(
+                DebaterConfig(
+                    id="debater_3",
+                    name="Shahar",
+                    model_name=engine3_model,
+                    persona="Systems Synthesizer & Execution Lead",
+                    color="#EF4444",
+                    avatar="🔥",
+                    image_path="assets/shahar.jpg",
+                    assigned_stance="Systems Synthesizer: Unifies trade-offs, operational milestones, and scaling optimizations.",
+                    stance_type="synthesizer",
+                )
+            )
+
+        state = DebateState(
+            question=objective,
+            app_mode="plan",
+            mode="Collaborative Mastermind",
+            max_rounds=max_rounds,
+            current_round=1,
+            current_turn_index=0,
+            debaters=debaters,
+            status="in_progress",
+            plan_readiness_score=60,
+        )
+        return cls(state)
+
+    def _synthesize_master_plan(self):
+        """Compiles the finalized Master Blueprint document using the lead architect model."""
+        from prompting.plan_prompts import get_master_plan_synthesis_prompt
+        prompt = get_master_plan_synthesis_prompt(self.state.question, self.state.turns)
+        lead_llm = self.debaters[0].llm
+        try:
+            raw_doc = lead_llm.send(
+                system_prompt="You are an elite enterprise architect compiling a Master Blueprint.",
+                user_prompt=prompt,
+                max_tokens=2500,
+            )
+            self.state.master_plan = raw_doc.strip()
+        except Exception as e:
+            logger.error(f"Error compiling Master Blueprint: {e}")
+            self.state.master_plan = self.state.turns[-1].response.current_best_answer if self.state.turns else "Master blueprint synthesized."
+
     def step_turn(self, progress: Optional[ProgressCallback] = None) -> Optional[TurnRecord]:
         """
-        Executes exactly one turn by the next scheduled debater.
+        Executes exactly one turn by the next scheduled debater / mastermind engine.
         """
         if self.is_finished():
             return None
@@ -206,13 +297,16 @@ class DebateEngine:
         debater = self.debaters[debater_idx]
         opponent_names = [d.name for d in self.debaters if d.id != debater.id]
 
+        role_label = debater.config.persona
         if progress:
             progress(
                 0.2,
-                f"Round {self.state.current_round}: {debater.name} ({debater.model_name}) presenting stance [{debater.config.stance_type.upper()}]...",
+                f"Iteration {self.state.current_round}: {debater.name} ({debater.model_name}) is co-designing as [{role_label}]..."
+                if self.state.app_mode == "plan"
+                else f"Round {self.state.current_round}: {debater.name} ({debater.model_name}) presenting stance [{debater.config.stance_type.upper()}]...",
             )
 
-        active_alliance = self.state.get_active_alliance()
+        active_alliance = self.state.get_active_alliance() if self.state.app_mode == "debate" else None
 
         turn_record = debater.make_turn(
             question=self.state.question,
@@ -222,12 +316,32 @@ class DebateEngine:
             past_turns=self.state.turns,
             mode=self.state.mode,
             active_alliance=active_alliance,
+            app_mode=self.state.app_mode,
         )
 
         self.state.turns.append(turn_record)
         self.state.current_turn_index += 1
 
-        # Check if full round completed
+        # === PLAN MODE ITERATION HANDLING ===
+        if self.state.app_mode == "plan":
+            recent_scores = [t.response.agreement_score for t in self.state.turns[-len(self.debaters):]]
+            if recent_scores:
+                self.state.plan_readiness_score = int(sum(recent_scores) / len(recent_scores))
+
+            if self.state.current_turn_index % len(self.debaters) == 0:
+                if self.state.current_round >= self.state.max_rounds:
+                    self.state.status = "plan_finalized"
+                    if progress:
+                        progress(0.85, "Compiling Master Blueprint Document...")
+                    self._synthesize_master_plan()
+                else:
+                    self.state.current_round += 1
+
+            if progress:
+                progress(1.0, "Iteration completed.")
+            return turn_record
+
+        # === DEBATE MODE ITERATION HANDLING (JUDGE & ALLIANCES) ===
         if self.state.current_turn_index % len(self.debaters) == 0:
             round_turns = self.state.get_turns_for_round(self.state.current_round)
 

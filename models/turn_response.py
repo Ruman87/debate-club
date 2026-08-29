@@ -4,13 +4,15 @@ from typing import List, Optional
 
 class DebaterResponse(BaseModel):
     """
-    Structured response produced by a debater LLM on each turn following
-    competitive collegiate debate standards (AREI, Link Turns, Impact Calculus).
+    Structured response produced by an AI engine on each turn for both
+    Debate Mode (competitive clash) and Plan Mode (collaborative co-design).
     """
     inner_reasoning: str = Field(
         default="",
-        description="Private strategic thinking: assessing opponent vulnerabilities, missing warrants, and impact weighing."
+        description="Private strategic thinking: assessing vulnerabilities, missing warrants, or architectural trade-offs."
     )
+    
+    # --- Debate Mode Specific Fields ---
     clash_point_targeted: Optional[str] = Field(
         default="",
         description="The specific opponent contention or premise being contested."
@@ -33,15 +35,7 @@ class DebaterResponse(BaseModel):
     )
     points_of_agreement: List[str] = Field(
         default_factory=list,
-        description="Specific statements or facts conceded for strategic 'Even-If' framing."
-    )
-    current_best_answer: str = Field(
-        default="",
-        description="The model's current comprehensive, updated answer structured via AREI (Assertion, Reasoning, Evidence, Impact)."
-    )
-    speech_bubble_summary: Optional[str] = Field(
-        default="",
-        description="A punchy, concise 2-3 sentence summary of your statement suitable for a graphic novel speech bubble."
+        description="Specific statements, accepted premises, or conceded facts."
     )
     alliance_target: Optional[str] = Field(
         default=None,
@@ -51,13 +45,37 @@ class DebaterResponse(BaseModel):
         default="",
         description="Strategic rationale or coordination pitch to team up against the remaining opponent."
     )
+
+    # --- Plan Mode Specific Fields ---
+    vulnerabilities_identified: List[str] = Field(
+        default_factory=list,
+        description="Critical flaws, bottlenecks, edge-case failures, or hidden risks in previous draft."
+    )
+    proposed_enhancements: List[str] = Field(
+        default_factory=list,
+        description="High-value architectural solutions, optimizations, and actionable innovations."
+    )
+    blueprint_section: Optional[str] = Field(
+        default="",
+        description="Structured draft contribution to the Master Blueprint (e.g. Architecture, Security, Roadmap)."
+    )
+
+    # --- Universal Response Fields ---
+    current_best_answer: str = Field(
+        default="",
+        description="The comprehensive argument (Debate Mode) or Master Blueprint state (Plan Mode)."
+    )
+    speech_bubble_summary: Optional[str] = Field(
+        default="",
+        description="A punchy, concise 2-3 sentence summary suitable for the graphic novel speech bubble."
+    )
     agreement_score: int = Field(
         default=50,
         ge=0,
         le=100,
-        description="Degree of alignment with the opponent/consensus (0 = total disagreement, 100 = complete consensus)."
+        description="Agreement / Blueprint readiness alignment score (0-100)."
     )
     is_consensus_reached: bool = Field(
         default=False,
-        description="True if the debater believes no fundamental disagreements remain and consensus is reached."
+        description="True if consensus is reached (Debate Mode) or Master Blueprint is finalized (Plan Mode)."
     )
