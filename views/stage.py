@@ -60,7 +60,8 @@ def render_arena_stage(
     is_plan_mode = state.app_mode == "plan"
     target_upcoming = upcoming_debater_idx if upcoming_debater_idx is not None else active_debater_idx
 
-    stage_uri = get_image_base64_data_uri("assets/arena_stage.jpg")
+    stage_img = "assets/plan_stage.jpg" if is_plan_mode else "assets/arena_stage.jpg"
+    stage_uri = get_image_base64_data_uri(stage_img)
     if not stage_uri:
         return
 

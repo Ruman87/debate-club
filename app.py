@@ -271,7 +271,8 @@ else:
             + "\n\nSwitch to **Local Machine (Ollama)** or **Simulator** models to run immediately, or add your API keys to `.env`."
         )
 
-    hero_uri = get_image_base64_data_uri("assets/arena_stage.jpg")
+    hero_img = "assets/plan_stage.jpg" if is_plan_mode else "assets/arena_stage.jpg"
+    hero_uri = get_image_base64_data_uri(hero_img)
     if hero_uri:
         st.markdown(
             f"""
