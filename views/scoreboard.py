@@ -5,6 +5,7 @@ and the live debate leaderboard.
 """
 
 import streamlit as st
+import html
 from typing import Optional
 from models.debate_state import DebateState, JudgeRoundEvaluation, ActiveAlliance
 from views.asset_loader import get_character_avatar_uri
