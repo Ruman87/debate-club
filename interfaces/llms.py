@@ -6,6 +6,8 @@ Supports OpenAI, Anthropic, Google Gemini, Groq, xAI Grok, Ollama (Local), and M
 import os
 import re
 import json
+import time
+import functools
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Type, Optional
@@ -21,6 +23,35 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 GROK_BASE_URL = "https://api.x.ai/v1"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 OLLAMA_BASE_URL = "http://localhost:11434/v1"
+
+
+def with_retry(max_retries: int = 3, initial_delay: float = 1.0, backoff_factor: float = 2.0):
+    """
+    Decorator for robust LLM API calls with exponential backoff and rate-limit recovery.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            last_err = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_err = e
+                    err_str = str(e).lower()
+                    # Do not retry configuration / missing API key errors
+                    if "is not configured in .env" in str(e) or "missing_key" in err_str or "not installed on your machine" in str(e):
+                        raise e
+                    logger.warning(
+                        f"LLM call attempt {attempt}/{max_retries} encountered transient error: {e}. Retrying in {delay:.1f}s..."
+                    )
+                    if attempt < max_retries:
+                        time.sleep(delay)
+                        delay *= backoff_factor
+            raise last_err
+        return wrapper
+    return decorator
 
 
 def extract_json_from_text(text: str) -> Dict[str, Any]:
@@ -203,6 +234,7 @@ class GPT(LLM):
         api_key = os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=api_key or "missing_key")
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         if not os.getenv("OPENAI_API_KEY"):
             raise ValueError(f"OPENAI_API_KEY is not configured in .env for model '{self.model_name}'.")
@@ -237,6 +269,7 @@ class Claude(LLM):
         api_key = os.getenv("ANTHROPIC_API_KEY")
         self.client = anthropic.Anthropic(api_key=api_key or "missing_key")
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         if not os.getenv("ANTHROPIC_API_KEY"):
             raise ValueError(f"ANTHROPIC_API_KEY is not configured in .env for model '{self.model_name}'.")
@@ -268,6 +301,7 @@ class Gemini(LLM):
             base_url=GEMINI_BASE_URL,
         )
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         if not os.getenv("GOOGLE_API_KEY"):
             raise ValueError(f"GOOGLE_API_KEY is not configured in .env for model '{self.model_name}'.")
@@ -299,6 +333,7 @@ class Grok(LLM):
             base_url=GROK_BASE_URL,
         )
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         if not os.getenv("GROK_API_KEY"):
             raise ValueError(f"GROK_API_KEY is not configured in .env for model '{self.model_name}'.")
@@ -327,6 +362,7 @@ class GroqAPI(LLM):
         api_key = os.getenv("GROK_API_KEY") or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key or "missing_key")
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         if not (os.getenv("GROQ_API_KEY") or os.getenv("GROK_API_KEY")):
             raise ValueError(f"GROQ_API_KEY is not configured in .env for model '{self.model_name}'.")
@@ -356,6 +392,7 @@ class Ollama(LLM):
             api_key="ollama",
         )
 
+    @with_retry(max_retries=3, initial_delay=1.0)
     def send(self, system_prompt: str, user_prompt: str, max_tokens: int = 1500) -> str:
         clean_model = self.model_name.replace("ollama/", "")
         try:
