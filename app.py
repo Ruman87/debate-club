@@ -178,10 +178,11 @@ def execute_turn_with_live_stage(engine: DebateEngine, stage_ph, prog_ph):
 
 
 # Top Action Control Bar
-col1, col2, col3, col4 = st.columns([1.6, 1, 1.2, 0.8])
+col1, col2, col3, col4, col5 = st.columns([1.5, 0.95, 1.05, 1.15, 0.75])
 
 start_btn_label = "🚀 Start Mastermind Plan" if is_plan_mode else "🚀 Start New Debate"
 next_btn_label = "⏭️ Next Step" if is_plan_mode else "⏭️ Next Turn"
+round_btn_label = "▶️ Run 1 Iteration" if is_plan_mode else "▶️ Run 1 Round"
 run_all_label = "⏩ Run Full Mastermind" if is_plan_mode else "⏩ Run Full Debate"
 
 with col1:
@@ -195,12 +196,16 @@ with col2:
 
 with col3:
     is_active = st.session_state.engine is not None and not st.session_state.engine.is_finished()
+    run_round_clicked = st.button(round_btn_label, disabled=not is_active, use_container_width=True)
+
+with col4:
+    is_active = st.session_state.engine is not None and not st.session_state.engine.is_finished()
     button_label = "⏸️ Pause" if st.session_state.auto_run else run_all_label
     if st.button(button_label, disabled=not is_active, use_container_width=True):
         st.session_state.auto_run = not st.session_state.auto_run
         st.rerun()
 
-with col4:
+with col5:
     if st.button("🔄 Reset", use_container_width=True):
         st.session_state.engine = None
         st.session_state.auto_run = False
@@ -222,6 +227,15 @@ if st.session_state.engine is not None:
     # Handle manual Next Step click
     if next_turn_clicked and not engine.is_finished():
         execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder)
+        st.rerun()
+
+    # Handle Run 1 Round click
+    elif run_round_clicked and not engine.is_finished():
+        start_round = engine.state.current_round
+        while not engine.is_finished() and engine.state.current_round == start_round:
+            execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder)
+            if not engine.is_finished() and engine.state.current_round == start_round:
+                time.sleep(1.8)
         st.rerun()
 
     # Handle Auto-Run Loop Step
