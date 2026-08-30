@@ -319,6 +319,7 @@ class DebateEngine:
             active_alliance=active_alliance,
             app_mode=self.state.app_mode,
             user_interventions=self.state.user_interventions,
+            round_evaluations=self.state.round_evaluations,
         )
 
         self.state.turns.append(turn_record)

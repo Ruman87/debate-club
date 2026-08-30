@@ -125,9 +125,11 @@ def get_debater_user_prompt(
     active_alliance: Optional[ActiveAlliance] = None,
     user_interventions: Optional[List[Any]] = None,
     grounding_context: Optional[str] = None,
+    round_evaluations: Optional[List[Any]] = None,
 ) -> str:
     """
-    Constructs user prompt with full debate clash context, live web grounding, and user interventions.
+    Constructs user prompt with full debate clash context, Supreme Judge Dredd rulings,
+    live web grounding, user interventions, and strict anti-repetition progression directives.
     """
     interventions_block = ""
     if user_interventions:
@@ -156,19 +158,50 @@ Construct your opening case using the AREI framework:
 
 Respond strictly in JSON matching the required schema."""
 
+    # Build chronological round-by-round transcript with Judge rulings
     transcript_blocks = []
+    
+    # Group turns by round
+    rounds_dict: Dict[int, List[TurnRecord]] = {}
     for turn in past_turns:
-        resp = turn.response
-        technique = getattr(resp, "rebuttal_technique", "Refutation")
-        warrant = getattr(resp, "core_warrant", "")
-        warrant_str = f"\nCore Warrant: {warrant}" if warrant else ""
+        rounds_dict.setdefault(turn.round_num, []).append(turn)
+
+    for r_idx in sorted(rounds_dict.keys()):
+        transcript_blocks.append(f"\n==================== ROUND {r_idx} ====================")
+        for turn in rounds_dict[r_idx]:
+            resp = turn.response
+            technique = getattr(resp, "rebuttal_technique", "Refutation")
+            warrant = getattr(resp, "core_warrant", "")
+            weighing = getattr(resp, "weighing_metric", "")
+            warrant_str = f"\n  - Causal Warrant: {warrant}" if warrant else ""
+            weighing_str = f"\n  - Impact Weighing: {weighing}" if weighing else ""
+            
+            transcript_blocks.append(
+                f"--- [{turn.debater_name} ({turn.model_name}) | Stance: {getattr(turn.response, 'rebuttal_technique', 'Argue')}] ---\n"
+                f"Speech Balloon Summary: \"{resp.speech_bubble_summary or resp.current_best_answer[:160]}\"\n"
+                f"Rebuttal [{technique}]: {resp.critique_or_rebuttal}\n"
+                f"Full Argument: {resp.current_best_answer}{warrant_str}{weighing_str}\n"
+            )
         
-        transcript_blocks.append(
-            f"--- [Round {turn.round_num} | {turn.debater_name} ({turn.model_name})] ---\n"
-            f"Speech Summary: {resp.speech_bubble_summary or resp.current_best_answer[:160]}\n"
-            f"Rebuttal [{technique}]: {resp.critique_or_rebuttal}\n"
-            f"Argument: {resp.current_best_answer}{warrant_str}\n"
-        )
+        # If there is a Judge Dredd evaluation for this round, display it!
+        if round_evaluations:
+            r_eval = next((e for e in round_evaluations if getattr(e, "round_num", None) == r_idx), None)
+            if r_eval:
+                winner = getattr(r_eval, "round_winner", "Consensus")
+                clash_pt = getattr(r_eval, "key_clash_issue", "")
+                commentary = getattr(r_eval, "judge_commentary", "")
+                dredd_quote = getattr(r_eval, "dredd_quote", "")
+                strongest = getattr(r_eval, "strongest_argument", "")
+                weakest = getattr(r_eval, "weakest_point", "")
+                
+                transcript_blocks.append(
+                    f"\n⚖️ >>> SUPREME JUDGE DREDD'S ROUND {r_idx} RULING <<<\n"
+                    f"• Round Winner Declared: {winner.upper()}\n"
+                    f"• Decisive Clash Point: \"{clash_pt}\"\n"
+                    f"• Judge's Decree: \"{dredd_quote or commentary}\"\n"
+                    f"• Strongest Point Noted by Judge: \"{strongest}\"\n"
+                    f"• Critical Weakness / Penalty: \"{weakest}\"\n"
+                )
 
     transcript_str = "\n".join(transcript_blocks)
     latest_turn = past_turns[-1]
@@ -181,21 +214,31 @@ Respond strictly in JSON matching the required schema."""
         else:
             alliance_status_str = f"\n⚠️ WARNING: {active_alliance.debater_a} and {active_alliance.debater_b} have formed an alliance against YOU ({active_alliance.target_debater})!\n"
 
+    # Identify what this specific debater said in earlier rounds to prevent repetition
+    own_past_turns = [t for t in past_turns if t.debater_name == debater_name]
+    own_past_summaries = [f"- Round {t.round_num}: {t.response.speech_bubble_summary}" for t in own_past_turns]
+    own_history_str = "\n".join(own_past_summaries) if own_past_summaries else "None (Opening speech)."
+
     return f"""### Debate Topic / Motion:
 "{question}"
 {grounding_block}
-### Debate History (Clash Flow):
+### Complete Debate History & Adjudication Flow:
 {transcript_str}
 {alliance_status_str}{interventions_block}
-### Your Turn:
-You are {debater_name}. It is Round {round_num}.
-The preceding speaker was {latest_turn.debater_name}.
 
-Your Objectives for this speech:
-1. **Target a Key Clash Point**: Identify the most vulnerable premise in {latest_turn.debater_name}'s speech.
-2. **Execute an Advanced Rebuttal**: Use a Link Turn, 'Even-If' comparative framing, or Mechanism Breakdown to dismantle their point.
-3. **Reinforce Your Warrants**: Strengthen your assigned position with concrete causal mechanisms.
-4. **Weigh the Impacts**: Tell Supreme Judge Dredd why your harms/benefits outweigh on Magnitude, Irreversibility, or Probability.
-5. **Speech Balloon Summary**: Provide a punchy 2-3 sentence summary that crystallizes your winning argument.
+### Your Previous Arguments in This Debate (DO NOT REPEAT THESE):
+{own_history_str}
+
+### Your Turn Directives (Round {round_num}):
+You are {debater_name}. The previous speaker was {latest_turn.debater_name} ({latest_turn.model_name}).
+
+⚡ **CRITICAL DIALECTIC PROGRESSION RULES (NO REPETITION)**:
+1. **ZERO REPETITION**: You MUST NOT repeat premises, examples, or rhetoric you already used in previous rounds. Evolve the debate forward!
+2. **ENGAGE SUPREME JUDGE DREDD'S RULINGS**: If Judge Dredd critiqued your previous point or highlighted a decisive clash point above, you MUST directly address that critique now and repair your case.
+3. **DIRECT CLASH WITH PREVIOUS SPEAKER**: Quote or directly refute the specific warrant {latest_turn.debater_name} just made using a Link Turn, 'Even-If' concession, or Mechanism Breakdown.
+4. **DEEPEN EVIDENCE & MECHANISMS**: Introduce new empirical analogies, second-order institutional incentives, or economic trade-offs.
+5. **COMPARATIVE IMPACT CALCULUS**: Convince Supreme Judge Dredd why your impacts outweigh on Magnitude, Severity/Irreversibility, or Probability.
+6. **SPEECH BALLOON SUMMARY**: Provide a crisp, punchy 2-3 sentence statement (~25-35 words) that crystallizes your new breakthrough or refutation.
 
 Respond strictly in JSON matching the required schema."""
+

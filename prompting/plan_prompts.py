@@ -116,33 +116,44 @@ Respond strictly in JSON matching the required schema."""
         vulns = getattr(resp, "vulnerabilities_identified", [])
         enhancements = getattr(resp, "proposed_enhancements", [])
         
-        vuln_str = f"\n  - Vulnerabilities Probed: {'; '.join(vulns)}" if vulns else ""
-        enh_str = f"\n  - Enhancements Added: {'; '.join(enhancements)}" if enhancements else ""
+        vuln_str = f"\n  - ⚠️ Vulnerabilities Discovered: {'; '.join(vulns)}" if vulns else ""
+        enh_str = f"\n  - 🚀 Enhancements & Solutions: {'; '.join(enhancements)}" if enhancements else ""
         
         transcript_blocks.append(
-            f"=== [Iteration {turn.round_num} | {turn.debater_name} ({turn.model_name})] ===\n"
-            f"Speech Summary: {resp.speech_bubble_summary or resp.current_best_answer[:160]}\n"
-            f"Blueprint Draft / Answer: {resp.current_best_answer[:400]}...{vuln_str}{enh_str}\n"
+            f"=== [Iteration {turn.round_num} | {turn.debater_name} ({turn.model_name}) as {turn.debater_name}] ===\n"
+            f"Speech Balloon Summary: \"{resp.speech_bubble_summary or resp.current_best_answer[:160]}\"\n"
+            f"Contributions & Architecture Draft:\n{resp.current_best_answer}{vuln_str}{enh_str}\n"
         )
 
     transcript_str = "\n".join(transcript_blocks)
     latest_turn = past_turns[-1]
 
+    # Collect all open vulnerabilities identified so far
+    all_vulns = []
+    for t in past_turns:
+        for v in getattr(t.response, "vulnerabilities_identified", []):
+            if v and v not in all_vulns:
+                all_vulns.append(v)
+    open_vulns_str = "\n".join([f"- {v}" for v in all_vulns]) if all_vulns else "None pending."
+
     return f"""### Mastermind Brainstorming Objective:
 "{objective}"
 
-### Collaborative Design History:
+### Complete Collaborative Design History (All Previous Contributions):
 {transcript_str}
 
-### Your Iteration:
-You are {debater_name}. It is Iteration {round_num}.
-The previous contribution was made by {latest_turn.debater_name}.
+### Open Risks & Vulnerabilities Identified by Team to Date:
+{open_vulns_str}
 
-Your Objectives:
-1. **Stress-Test & Analyze**: Inspect the latest blueprint draft. What is missing? Where could it fail under real-world pressure?
-2. **Propose High-Value Enhancements**: Introduce concrete technical, operational, or strategic upgrades.
-3. **Advance the Master Blueprint**: Update the comprehensive solution in `current_best_answer`.
-4. **Speech Balloon Summary**: Provide a crisp 2-3 sentence statement highlighting your key breakthrough or solution.
+### Your Iteration Directive (Iteration {round_num}):
+You are {debater_name}. The previous contribution was made by {latest_turn.debater_name} ({latest_turn.model_name}).
+
+⚡ **PROGRESSION & CO-DESIGN RULES (NO REHASHING)**:
+1. **ZERO REPETITION**: Do NOT re-state the general concept or rewrite parts of the plan that are already agreed upon. Advance the plan to the next level of depth!
+2. **RESOLVE OPEN RISKS**: Specifically address and solve the vulnerabilities identified in previous iterations.
+3. **ADD CONCRETE IMPLEMENTATION DEPTH**: Inject exact system schemas, API routes, data models, failure recovery algorithms, unit economics, or deployment phases.
+4. **UPDATE COMPREHENSIVE BLUEPRINT**: Deliver your updated, hardened version in `current_best_answer`.
+5. **SPEECH BALLOON SUMMARY**: Provide a punchy 2-3 sentence statement (~25-35 words) explaining the concrete breakthrough or remedy you just contributed.
 
 Respond strictly in JSON matching the required schema."""
 

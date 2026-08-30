@@ -51,6 +51,7 @@ class Debater:
         app_mode: str = "debate",
         user_interventions: Optional[List[Any]] = None,
         grounding_enabled: bool = True,
+        round_evaluations: Optional[List[Any]] = None,
     ) -> TurnRecord:
         """
         Executes a turn for either Debate Mode or Plan Mode by prompting the LLM and parsing structured response.
@@ -94,6 +95,7 @@ class Debater:
                 active_alliance=active_alliance,
                 user_interventions=user_interventions,
                 grounding_context=grounding_context,
+                round_evaluations=round_evaluations,
             )
 
         logger.info(f"Debater {self.name} ({self.model_name}) thinking for {'Iteration' if app_mode == 'plan' else 'Round'} {round_num} [{app_mode.upper()} MODE]...")
