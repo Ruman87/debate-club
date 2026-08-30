@@ -59,6 +59,67 @@ def generate_executive_audit_report(state: DebateState) -> str:
     return "\n".join(report_lines)
 
 
+def generate_standalone_html_report(state: DebateState) -> str:
+    """Generates an executive-grade standalone HTML audit report ready for printing to PDF."""
+    ts = datetime.now().strftime("%B %d, %Y - %H:%M UTC")
+    is_plan = state.app_mode == "plan"
+    theme_color = "#10B981" if is_plan else "#F59E0B"
+    title_text = "Master Blueprint Architecture Seal" if is_plan else "Verified Dialectic Consensus Certificate"
+
+    debaters_html = "".join(
+        f"<li><strong>{d.name}</strong> (<code>{d.model_name}</code>): [{d.stance_type.upper()}] {d.assigned_stance}</li>"
+        for d in state.debaters
+    )
+
+    content_body = state.master_plan if is_plan else (
+        f"<p><strong>Grand Champion:</strong> {state.grand_winner or 'Consensus'}</p>"
+        f"<p>{state.final_verdict.summary_verdict if state.final_verdict else ''}</p>"
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Debate-Club Decision Audit: {state.question[:30]}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0F172A; color: #F8FAFC; padding: 40px; line-height: 1.6; max-width: 900px; margin: 0 auto; }}
+        .certificate-box {{ border: 2px solid {theme_color}; border-radius: 16px; padding: 32px; background: #1E293B; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; }}
+        .badge {{ color: {theme_color}; font-weight: 800; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 0.1em; }}
+        h1 {{ margin: 6px 0; color: #FFFFFF; font-size: 1.8rem; }}
+        .meta-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; border-top: 1px solid #334155; border-bottom: 1px solid #334155; padding: 16px 0; }}
+        .meta-item div:first-child {{ color: #94A3B8; font-size: 0.75rem; font-weight: 700; }}
+        .meta-item div:last-child {{ color: #F8FAFC; font-weight: 700; font-size: 1.05rem; }}
+        .content-section {{ background: #1E293B; padding: 28px; border-radius: 12px; border: 1px solid #334155; margin-top: 20px; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 16px 0; }}
+        th, td {{ border: 1px solid #475569; padding: 10px; text-align: left; }}
+        th {{ background: #334155; color: #F8FAFC; }}
+        code {{ background: #0F172A; padding: 2px 6px; border-radius: 4px; color: {theme_color}; }}
+        @media print {{ body {{ background: #FFFFFF; color: #000000; }} .certificate-box, .content-section {{ background: #FFFFFF; border-color: #CBD5E1; color: #000000; }} }}
+    </style>
+</head>
+<body>
+    <div class="certificate-box">
+        <div class="badge">Debate-Club Protocol • Official Audit Seal</div>
+        <h1>{title_text}</h1>
+        <div style="color: #94A3B8; font-size: 0.95rem;">Motion / Objective: "{state.question}"</div>
+        <div class="meta-grid">
+            <div class="meta-item"><div>AUDIT DATE</div><div>{ts}</div></div>
+            <div class="meta-item"><div>ENGINES</div><div>{len(state.debaters)} Multi-Model Entities</div></div>
+            <div class="meta-item"><div>DELIBERATION</div><div>{state.current_round} Rounds Completed</div></div>
+        </div>
+        <div>
+            <div style="font-size: 0.85rem; font-weight: 700; color: #94A3B8; margin-bottom: 8px;">PARTICIPATING ENGINES & MANDATES:</div>
+            <ul>{debaters_html}</ul>
+        </div>
+    </div>
+    <div class="content-section">
+        <h2>📋 Deliberation Outcome & Master Document</h2>
+        {content_body}
+    </div>
+</body>
+</html>"""
+
+
 def render_decision_certificate(state: DebateState):
     """
     Renders an executive decision audit certificate with download capabilities.
@@ -78,7 +139,7 @@ def render_decision_certificate(state: DebateState):
     st.markdown("### 🏛️ Executive Decision Audit & Consensus Certificate")
     st.caption("Cryptographically verifiable record of multi-model deliberation, warrants, and final outcome.")
 
-    winner_or_score = f"100% Convergence" if is_plan else f"Champion: {state.grand_winner.upper() if state.grand_winner else 'Consensus'}"
+    winner_or_score = "100% Convergence" if is_plan else f"Champion: {state.grand_winner.upper() if state.grand_winner else 'Consensus'}"
 
     certificate_html = f"""
     <div style="
@@ -143,11 +204,22 @@ def render_decision_certificate(state: DebateState):
     """
     st.markdown(certificate_html, unsafe_allow_html=True)
 
-    report_md = generate_executive_audit_report(state)
-    st.download_button(
-        label="📄 Download Official Decision Audit Report (.md)",
-        data=report_md,
-        file_name=f"decision_audit_{state.question[:25].replace(' ', '_')}.md",
-        mime="text/markdown",
-        use_container_width=True,
-    )
+    col1, col2 = st.columns(2)
+    with col1:
+        report_md = generate_executive_audit_report(state)
+        st.download_button(
+            label="📄 Download Executive Audit Report (.md)",
+            data=report_md,
+            file_name=f"decision_audit_{state.question[:25].replace(' ', '_')}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+    with col2:
+        report_html = generate_standalone_html_report(state)
+        st.download_button(
+            label="🌐 Download Standalone HTML Certificate",
+            data=report_html,
+            file_name=f"decision_audit_{state.question[:25].replace(' ', '_')}.html",
+            mime="text/html",
+            use_container_width=True,
+        )
