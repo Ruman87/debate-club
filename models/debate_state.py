@@ -86,6 +86,16 @@ class FinalVerdict(BaseModel):
     dredd_final_decree: Optional[str] = None
 
 
+class UserIntervention(BaseModel):
+    """
+    Cross-examination question or constraint injected by the audience / user mid-session.
+    """
+    round_num: int
+    question: str
+    target_debater: Optional[str] = "All"
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
 class DebateState(BaseModel):
     """
     Complete state of an ongoing or completed debate or planning brainstorm session.
@@ -98,6 +108,7 @@ class DebateState(BaseModel):
     current_turn_index: int = 0
     debaters: List[DebaterConfig] = Field(default_factory=list)
     turns: List[TurnRecord] = Field(default_factory=list)
+    user_interventions: List[UserIntervention] = Field(default_factory=list)
     status: str = "idle"  # 'idle', 'in_progress', 'consensus_reached', 'max_rounds_reached', 'stalemate', 'plan_finalized'
     
     # Debate Mode: Judge & Competitive Mechanics

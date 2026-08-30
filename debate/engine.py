@@ -318,6 +318,7 @@ class DebateEngine:
             mode=self.state.mode,
             active_alliance=active_alliance,
             app_mode=self.state.app_mode,
+            user_interventions=self.state.user_interventions,
         )
 
         self.state.turns.append(turn_record)
@@ -409,6 +410,19 @@ class DebateEngine:
             if rec:
                 records.append(rec)
         return records
+
+    def inject_user_intervention(self, question: str, target_debater: str = "All") -> None:
+        """
+        Injects a real-time audience cross-examination question or constraint into the active debate state.
+        """
+        from models.debate_state import UserIntervention
+        inv = UserIntervention(
+            round_num=self.state.current_round,
+            question=question.strip(),
+            target_debater=target_debater,
+        )
+        self.state.user_interventions.append(inv)
+        logger.info(f"Injected user intervention for Round {self.state.current_round}: '{question[:60]}...'")
 
     def run_all(self, progress: Optional[ProgressCallback] = None) -> DebateState:
         """

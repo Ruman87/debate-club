@@ -23,6 +23,7 @@ from views.consensus_gauge import render_consensus_meter, render_final_verdict
 from views.stage import render_arena_stage
 from views.scoreboard import render_judge_scoreboard
 from views.blueprint_view import render_master_blueprint
+from views.certificate_view import render_decision_certificate
 from views.asset_loader import get_image_base64_data_uri
 
 # Initialize environment and logging
@@ -236,6 +237,24 @@ if st.session_state.engine is not None:
         with stage_placeholder.container():
             render_arena_stage(engine.state, is_thinking=False)
 
+    # 1.5 Live Audience Cross-Examination Injection (Mid-session human-in-the-loop)
+    if not engine.is_finished():
+        with st.expander("🎤 Inject Audience Cross-Examination / Challenge", expanded=False):
+            col_inv1, col_inv2 = st.columns([3.5, 1])
+            with col_inv1:
+                inv_q = st.text_input(
+                    "Your cross-examination question or objection:",
+                    placeholder="e.g. But what about the latency bottleneck under 50k writes/sec?",
+                    key="txt_user_intervention",
+                )
+            with col_inv2:
+                st.write("")
+                st.write("")
+                if st.button("⚡ Inject Challenge", key="btn_inject_inv", use_container_width=True):
+                    if inv_q:
+                        engine.inject_user_intervention(inv_q)
+                        st.success(f"✅ Challenge registered! Debaters will address this in their upcoming speech.")
+
     # 2. Render Scoreboard (Debate Mode only)
     if not current_is_plan:
         render_judge_scoreboard(engine.state)
@@ -253,16 +272,11 @@ if st.session_state.engine is not None:
             st.success(f"🏆 **DEBATE CHAMPION DECLARED BY SUPREME JUDGE DREDD: {engine.state.grand_winner.upper()}!**")
         render_final_verdict(engine.state)
 
-        # Export debate transcript
-        transcript_json = json.dumps(engine.state.model_dump(), default=str, indent=2)
-        st.download_button(
-            label="📥 Export Full Debate Transcript (JSON)",
-            data=transcript_json,
-            file_name=f"debate_transcript_{len(engine.state.turns)}_turns.json",
-            mime="application/json",
-        )
+    # 6. Render Official Decision Audit Certificate (Completed Sessions)
+    if engine.is_finished():
+        render_decision_certificate(engine.state)
 
-    # 6. Render Consensus Analytics (Debate Mode only)
+    # 7. Render Consensus Analytics (Debate Mode only)
     if not current_is_plan:
         with st.expander("📊 Consensus Analytics & Agreement Trajectory", expanded=engine.is_finished()):
             render_consensus_meter(engine.state)

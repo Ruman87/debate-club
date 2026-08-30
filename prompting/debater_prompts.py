@@ -123,14 +123,30 @@ def get_debater_user_prompt(
     turn_index: int,
     past_turns: List[TurnRecord],
     active_alliance: Optional[ActiveAlliance] = None,
+    user_interventions: Optional[List[Any]] = None,
+    grounding_context: Optional[str] = None,
 ) -> str:
     """
-    Constructs user prompt with full debate clash context, previous arguments, and alliance status.
+    Constructs user prompt with full debate clash context, live web grounding, and user interventions.
     """
+    interventions_block = ""
+    if user_interventions:
+        relevant = [i for i in user_interventions if getattr(i, "round_num", 0) <= round_num]
+        if relevant:
+            latest_inv = relevant[-1]
+            interventions_block = f"""
+### 🎤 LIVE AUDIENCE CROSS-EXAMINATION / INTERVENTION:
+The audience/judge has intervened with a direct challenge:
+"{latest_inv.question}"
+👉 **Mandatory Requirement**: You MUST directly address this challenge in your rebuttal or speech!
+"""
+
+    grounding_block = f"\n{grounding_context}\n" if grounding_context else ""
+
     if not past_turns:
         return f"""### Debate Topic / Motion:
 "{question}"
-
+{grounding_block}{interventions_block}
 This is Round 1 (Turn 1). You are the opening debater ({debater_name}).
 Construct your opening case using the AREI framework:
 1. State your core Assertion.
@@ -167,10 +183,10 @@ Respond strictly in JSON matching the required schema."""
 
     return f"""### Debate Topic / Motion:
 "{question}"
-
+{grounding_block}
 ### Debate History (Clash Flow):
 {transcript_str}
-{alliance_status_str}
+{alliance_status_str}{interventions_block}
 ### Your Turn:
 You are {debater_name}. It is Round {round_num}.
 The preceding speaker was {latest_turn.debater_name}.

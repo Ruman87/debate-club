@@ -4,6 +4,7 @@ from typing import List, Optional, Any
 from interfaces.llms import LLM, extract_json_from_text
 from models.debate_state import DebaterConfig, TurnRecord
 from models.turn_response import DebaterResponse
+from interfaces.search import search_web_grounding, format_grounding_context
 from prompting.debater_prompts import (
     get_debater_system_prompt,
     get_debater_user_prompt,
@@ -24,6 +25,7 @@ class Debater:
     def __init__(self, config: DebaterConfig):
         self.config = config
         self.llm = LLM.for_model_name(config.model_name)
+        self._cached_grounding = None
 
     @property
     def id(self) -> str:
@@ -47,10 +49,19 @@ class Debater:
         mode: str = "Dialectic Truth-Seeking",
         active_alliance: Optional[Any] = None,
         app_mode: str = "debate",
+        user_interventions: Optional[List[Any]] = None,
+        grounding_enabled: bool = True,
     ) -> TurnRecord:
         """
         Executes a turn for either Debate Mode or Plan Mode by prompting the LLM and parsing structured response.
         """
+        grounding_context = ""
+        if grounding_enabled:
+            if not self._cached_grounding:
+                search_results = search_web_grounding(question, max_results=3)
+                self._cached_grounding = format_grounding_context(search_results)
+            grounding_context = self._cached_grounding
+
         if app_mode == "plan":
             system_prompt = get_plan_debater_system_prompt(
                 debater_name=self.name,
@@ -81,6 +92,8 @@ class Debater:
                 turn_index=turn_index,
                 past_turns=past_turns,
                 active_alliance=active_alliance,
+                user_interventions=user_interventions,
+                grounding_context=grounding_context,
             )
 
         logger.info(f"Debater {self.name} ({self.model_name}) thinking for {'Iteration' if app_mode == 'plan' else 'Round'} {round_num} [{app_mode.upper()} MODE]...")
