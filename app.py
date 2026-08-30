@@ -128,7 +128,7 @@ def start_session():
     st.session_state.auto_run = False
 
 
-def execute_turn_with_live_stage(engine: DebateEngine, stage_ph, prog_ph):
+def execute_turn_with_live_stage(engine: DebateEngine, stage_ph, prog_ph, reading_delay: float = 4.0):
     """
     Executes exactly one turn while keeping the previous debater's
     argument displayed during thinking, then presenting the new speech balloon,
@@ -171,8 +171,8 @@ def execute_turn_with_live_stage(engine: DebateEngine, stage_ph, prog_ph):
     with stage_ph.container():
         if was_round_end and not is_plan and engine.state.round_evaluations:
             render_arena_stage(engine.state, show_judge_verdict=True)
-            if st.session_state.auto_run:
-                time.sleep(2.5)
+            if st.session_state.auto_run or getattr(st.session_state, "running_round", False):
+                time.sleep(max(4.0, reading_delay + 1.2))
         else:
             render_arena_stage(engine.state, is_thinking=False)
 
@@ -215,6 +215,7 @@ with col5:
 if st.session_state.engine is not None:
     engine: DebateEngine = st.session_state.engine
     current_is_plan = engine.state.app_mode == "plan"
+    reading_delay = config.get("reading_pace", 4.0)
 
     query_label = "🎯 Brainstorm Objective" if current_is_plan else "❓ Motion"
     st.markdown(f"#### {query_label}: *\"{engine.state.question}\"*")
@@ -226,22 +227,24 @@ if st.session_state.engine is not None:
 
     # Handle manual Next Step click
     if next_turn_clicked and not engine.is_finished():
-        execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder)
+        execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder, reading_delay)
         st.rerun()
 
     # Handle Run 1 Round click
     elif run_round_clicked and not engine.is_finished():
+        st.session_state.running_round = True
         start_round = engine.state.current_round
         while not engine.is_finished() and engine.state.current_round == start_round:
-            execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder)
+            execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder, reading_delay)
             if not engine.is_finished() and engine.state.current_round == start_round:
-                time.sleep(1.8)
+                time.sleep(reading_delay)
+        st.session_state.running_round = False
         st.rerun()
 
     # Handle Auto-Run Loop Step
     elif st.session_state.auto_run and not engine.is_finished():
-        execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder)
-        time.sleep(1.8)
+        execute_turn_with_live_stage(engine, stage_placeholder, prog_placeholder, reading_delay)
+        time.sleep(reading_delay)
         if st.session_state.auto_run and not engine.is_finished():
             st.rerun()
         else:

@@ -140,6 +140,15 @@ def render_control_panel() -> Dict[str, Any]:
         # 5. Live Web Grounding Toggle
         enable_web_grounding = st.checkbox("🌐 Live Web Search Grounding (RAG)", value=True, help="Automatically searches the web to provide debaters with verifiable empirical citations.")
 
+        # 6. Graphic Novel Reading Pace
+        reading_pace = st.select_slider(
+            "⏱️ Speech Bubble Reading Pace:",
+            options=[2.0, 3.5, 4.5, 6.0],
+            value=4.0,
+            format_func=lambda x: f"{x}s ({'⚡ Fast Skim' if x <= 2.0 else '📖 Standard Comic' if x <= 3.5 else '🎨 Story Mode' if x <= 4.5 else '🧐 Deep Read'})",
+            help="Time allocated for each speech balloon on stage so you have plenty of time to read before the next turn."
+        )
+
         st.markdown("---")
 
         # Models Setup
@@ -364,4 +373,5 @@ def render_control_panel() -> Dict[str, Any]:
             "is_valid": len(unready_warnings) == 0,
             "loaded_state": loaded_state,
             "enable_web_grounding": enable_web_grounding,
+            "reading_pace": reading_pace,
         }
